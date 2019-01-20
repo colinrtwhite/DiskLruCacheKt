@@ -330,8 +330,8 @@ class DiskLruCache private constructor(
             }
         } catch (e: FileNotFoundException) {
             // A file must have been deleted manually!
-            (0 until valueCount).forEach {
-                inputs[it]?.closeQuietly() ?: return@forEach
+            for (input in inputs) {
+                input?.closeQuietly() ?: break
             }
             return null
         }
@@ -343,7 +343,8 @@ class DiskLruCache private constructor(
             executorService.submit(cleanupCallable)
         }
 
-        return Snapshot(key, entry.sequenceNumber, inputs.filterNotNull(), entry.lengths)
+        @Suppress("UNCHECKED_CAST")
+        return Snapshot(key, entry.sequenceNumber, inputs as Array<Source>, entry.lengths)
     }
 
     @Throws(IOException::class)
@@ -573,7 +574,7 @@ class DiskLruCache private constructor(
     inner class Snapshot(
         private val key: String,
         private val sequenceNumber: Long,
-        private val inputs: List<Source>,
+        private val inputs: Array<Source>,
         private val lengths: LongArray
     ) : Closeable {
 
