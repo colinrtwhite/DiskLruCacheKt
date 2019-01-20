@@ -20,6 +20,7 @@ import okio.Buffer
 import okio.BufferedSink
 import okio.Sink
 import okio.Source
+import okio.Timeout
 import okio.appendingSink
 import okio.buffer
 import okio.sink
@@ -29,7 +30,6 @@ import java.io.EOFException
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.io.OutputStream
 import java.util.LinkedHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -861,9 +861,18 @@ class DiskLruCache private constructor(
         internal const val STRING_KEY_PATTERN = "[a-z0-9_-]{1,120}"
 
         private val LEGAL_KEY_PATTERN = STRING_KEY_PATTERN.toRegex()
-        private val NULL_SINK = object : OutputStream() {
-            override fun write(b: Int) = Unit // Eat all writes silently. Nom nom.
-        }.sink()
+
+        private val NULL_SINK = object : Sink {
+            private val timeout = Timeout()
+
+            override fun write(source: Buffer, byteCount: Long) = Unit // Eat all writes silently. Nom nom.
+
+            override fun flush() = Unit
+
+            override fun timeout() = timeout
+
+            override fun close() = Unit
+        }
 
         /**
          * Opens the cache in `directory`, creating a cache if none exists
