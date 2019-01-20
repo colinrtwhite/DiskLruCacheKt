@@ -428,7 +428,7 @@ class DiskLruCache private constructor(
         // If this edit is creating the entry for the first time, every index must have a value.
         if (success && !entry.readable) {
             (0 until valueCount).forEach {
-                if (!editor.written!![it]) {
+                if (editor.written?.get(it) != true) {
                     editor.abort()
                     throw IllegalStateException("Newly created entry didn't create value for index $it.")
                 }
@@ -629,6 +629,7 @@ class DiskLruCache private constructor(
                 if (!entry.readable) {
                     return null
                 }
+
                 return try {
                     entry.getCleanFile(index).source()
                 } catch (e: FileNotFoundException) {
@@ -666,6 +667,7 @@ class DiskLruCache private constructor(
                 if (!entry.readable) {
                     written?.set(index, true)
                 }
+
                 val dirtyFile = entry.getDirtyFile(index)
                 val sink = try {
                     dirtyFile.sink()
@@ -786,12 +788,12 @@ class DiskLruCache private constructor(
             }
         }
 
-        fun getCleanFile(i: Int): File {
-            return File(directory, "$key.$i")
+        fun getCleanFile(index: Int): File {
+            return File(directory, "$key.$index")
         }
 
-        fun getDirtyFile(i: Int): File {
-            return File(directory, "$key.$i.tmp")
+        fun getDirtyFile(index: Int): File {
+            return File(directory, "$key.$index.tmp")
         }
 
         @Throws(IOException::class)
