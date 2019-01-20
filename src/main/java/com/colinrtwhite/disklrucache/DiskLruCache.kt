@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.jakewharton.disklrucache
+package com.colinrtwhite.disklrucache
 
 import okio.Buffer
 import okio.BufferedSink

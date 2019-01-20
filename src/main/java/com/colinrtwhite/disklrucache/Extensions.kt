@@ -1,4 +1,4 @@
-package com.jakewharton.disklrucache
+package com.colinrtwhite.disklrucache
 
 import java.io.Closeable
 import java.io.File
