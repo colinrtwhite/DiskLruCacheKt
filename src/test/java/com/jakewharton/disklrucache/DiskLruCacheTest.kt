@@ -128,8 +128,8 @@ class DiskLruCacheTest {
     @Test
     fun writeAndReadEntry() {
         val creator = cache.edit("k1")!!
-        creator[0] = "ABC"
-        creator[1] = "DE"
+        creator.setString(0, "ABC")
+        creator.setString(1, "DE")
         assertThat(creator.getString(0)).isNull()
         assertThat(creator.newSource(0)).isNull()
         assertThat(creator.getString(1)).isNull()
@@ -146,8 +146,8 @@ class DiskLruCacheTest {
     @Test
     fun readAndWriteEntryAcrossCacheOpenAndClose() {
         val creator = cache.edit("k1")!!
-        creator[0] = "A"
-        creator[1] = "B"
+        creator.setString(0, "A")
+        creator.setString(1, "B")
         creator.commit()
         cache.close()
 
@@ -163,8 +163,8 @@ class DiskLruCacheTest {
     @Test
     fun readAndWriteEntryWithoutProperClose() {
         val creator = cache.edit("k1")!!
-        creator[0] = "A"
-        creator[1] = "B"
+        creator.setString(0, "A")
+        creator.setString(1, "B")
         creator.commit()
 
         // Simulate a dirty close of 'cache' by opening the cache directory again.
@@ -182,8 +182,8 @@ class DiskLruCacheTest {
     fun journalWithEditAndPublish() {
         val creator = cache.edit("k1")!!
         assertJournalEquals("DIRTY k1") // DIRTY must always be flushed.
-        creator[0] = "AB"
-        creator[1] = "C"
+        creator.setString(0, "AB")
+        creator.setString(1, "C")
         creator.commit()
         cache.close()
         assertJournalEquals("DIRTY k1", "CLEAN k1 2 1")
@@ -193,8 +193,8 @@ class DiskLruCacheTest {
     fun revertedNewFileIsRemoveInJournal() {
         val creator = cache.edit("k1")!!
         assertJournalEquals("DIRTY k1") // DIRTY must always be flushed.
-        creator[0] = "AB"
-        creator[1] = "C"
+        creator.setString(0, "AB")
+        creator.setString(1, "C")
         creator.abort()
         cache.close()
         assertJournalEquals("DIRTY k1", "REMOVE k1")
@@ -211,8 +211,8 @@ class DiskLruCacheTest {
     fun journalDoesNotIncludeReadOfYetUnpublishedValue() {
         val creator = cache.edit("k1")!!
         assertThat(cache["k1"]).isNull()
-        creator[0] = "A"
-        creator[1] = "BC"
+        creator.setString(0, "A")
+        creator.setString(1, "BC")
         creator.commit()
         cache.close()
         assertJournalEquals("DIRTY k1", "CLEAN k1 1 2")
@@ -221,12 +221,12 @@ class DiskLruCacheTest {
     @Test
     fun journalWithEditAndPublishAndRead() {
         val k1Creator = cache.edit("k1")!!
-        k1Creator[0] = "AB"
-        k1Creator[1] = "C"
+        k1Creator.setString(0, "AB")
+        k1Creator.setString(1, "C")
         k1Creator.commit()
         val k2Creator = cache.edit("k2")!!
-        k2Creator[0] = "DEF"
-        k2Creator[1] = "G"
+        k2Creator.setString(0, "DEF")
+        k2Creator.setString(1, "G")
         k2Creator.commit()
         val k1Snapshot = cache["k1"]!!
         k1Snapshot.close()
@@ -237,8 +237,8 @@ class DiskLruCacheTest {
     @Test
     fun cannotOperateOnEditAfterPublish() {
         val editor = cache.edit("k1")!!
-        editor[0] = "A"
-        editor[1] = "B"
+        editor.setString(0, "A")
+        editor.setString(1, "B")
         editor.commit()
         assertInoperable(editor)
     }
@@ -246,8 +246,8 @@ class DiskLruCacheTest {
     @Test
     fun cannotOperateOnEditAfterRevert() {
         val editor = cache.edit("k1")!!
-        editor[0] = "A"
-        editor[1] = "B"
+        editor.setString(0, "A")
+        editor.setString(1, "B")
         editor.abort()
         assertInoperable(editor)
     }
@@ -255,8 +255,8 @@ class DiskLruCacheTest {
     @Test
     fun explicitRemoveAppliedToDiskImmediately() {
         val editor = cache.edit("k1")!!
-        editor[0] = "ABC"
-        editor[1] = "B"
+        editor.setString(0, "ABC")
+        editor.setString(1, "B")
         editor.commit()
         val k1 = getCleanFile("k1", 0)
         assertThat(readFile(k1)).isEqualTo("ABC")
@@ -271,8 +271,8 @@ class DiskLruCacheTest {
     @Test
     fun readAndWriteOverlapsMaintainConsistency() {
         val v1Creator = cache.edit("k1")!!
-        v1Creator[0] = "AAaa"
-        v1Creator[1] = "BBbb"
+        v1Creator.setString(0, "AAaa")
+        v1Creator.setString(1, "BBbb")
         v1Creator.commit()
 
         val snapshot1 = cache["k1"]!!
@@ -281,8 +281,8 @@ class DiskLruCacheTest {
         assertThat(inV1.readByte()).isEqualTo('A'.toByte())
 
         val v1Updater = cache.edit("k1")!!
-        v1Updater[0] = "CCcc"
-        v1Updater[1] = "DDdd"
+        v1Updater.setString(0, "CCcc")
+        v1Updater.setString(1, "DDdd")
         v1Updater.commit()
 
         val snapshot2 = cache["k1"]!!
@@ -433,7 +433,7 @@ class DiskLruCacheTest {
     @Test
     fun createNewEntryWithTooFewValuesFails() {
         val creator = cache.edit("k1")!!
-        creator[1] = "A"
+        creator.setString(1, "A")
         try {
             creator.commit()
             fail()
@@ -447,15 +447,15 @@ class DiskLruCacheTest {
         assertThat(cache["k1"]).isNull()
 
         val creator2 = cache.edit("k1")!!
-        creator2[0] = "B"
-        creator2[1] = "C"
+        creator2.setString(0, "B")
+        creator2.setString(1, "C")
         creator2.commit()
     }
 
     @Test
     fun revertWithTooFewValues() {
         val creator = cache.edit("k1")!!
-        creator[1] = "A"
+        creator.setString(1, "A")
         creator.abort()
         assertThat(getCleanFile("k1", 0).exists()).isFalse()
         assertThat(getCleanFile("k1", 1).exists()).isFalse()
@@ -467,12 +467,12 @@ class DiskLruCacheTest {
     @Test
     fun updateExistingEntryWithTooFewValuesReusesPreviousValues() {
         val creator = cache.edit("k1")!!
-        creator[0] = "A"
-        creator[1] = "B"
+        creator.setString(0, "A")
+        creator.setString(1, "B")
         creator.commit()
 
         val updater = cache.edit("k1")!!
-        updater[0] = "C"
+        updater.setString(0, "C")
         updater.commit()
 
         val snapshot = cache["k1"]!!
@@ -742,8 +742,8 @@ class DiskLruCacheTest {
     @Test
     fun restoreBackupFile() {
         val creator = cache.edit("k1")!!
-        creator[0] = "ABC"
-        creator[1] = "DE"
+        creator.setString(0, "ABC")
+        creator.setString(1, "DE")
         creator.commit()
         cache.close()
 
@@ -765,16 +765,16 @@ class DiskLruCacheTest {
     @Test
     fun journalFileIsPreferredOverBackupFile() {
         var creator = cache.edit("k1")!!
-        creator[0] = "ABC"
-        creator[1] = "DE"
+        creator.setString(0, "ABC")
+        creator.setString(1, "DE")
         creator.commit()
         cache.flush()
 
         FileUtils.copyFile(journalFile, journalBkpFile)
 
         creator = cache.edit("k2")!!
-        creator[0] = "F"
-        creator[1] = "GH"
+        creator.setString(0, "F")
+        creator.setString(1, "GH")
         creator.commit()
         cache.close()
 
@@ -822,7 +822,7 @@ class DiskLruCacheTest {
         set("a", "a", "a")
         val snapshot = cache["a"]!!
         val editor = snapshot.edit()!!
-        editor[1] = "a2"
+        editor.setString(1, "a2")
         editor.commit()
         assertValue("a", "a", "a2")
     }
@@ -832,10 +832,10 @@ class DiskLruCacheTest {
         set("a", "a", "a")
         val snapshot = cache["a"]!!
         val toAbort = snapshot.edit()!!
-        toAbort[0] = "b"
+        toAbort.setString(0, "b")
         toAbort.abort()
         val editor = snapshot.edit()!!
-        editor[1] = "a2"
+        editor.setString(1, "a2")
         editor.commit()
         assertValue("a", "a", "a2")
     }
@@ -845,7 +845,7 @@ class DiskLruCacheTest {
         set("a", "a", "a")
         val snapshot = cache["a"]!!
         val toAbort = snapshot.edit()!!
-        toAbort[0] = "b"
+        toAbort.setString(0, "b")
         toAbort.commit()
         assertThat(snapshot.edit()).isNull()
     }
@@ -893,7 +893,7 @@ class DiskLruCacheTest {
         set("a", "a", "a")
         val a = cache["a"]!!.edit()!!
         FileUtils.deleteDirectory(cacheDir)
-        a[1] = "a2"
+        a.setString(1, "a2")
         a.commit()
     }
 
@@ -912,9 +912,9 @@ class DiskLruCacheTest {
         set("a", "a", "a")
         set("b", "b", "b")
         val a = cache["a"]!!.edit()!!
-        a[0] = "a1"
+        a.setString(0, "a1")
         FileUtils.deleteDirectory(cacheDir)
-        a[1] = "a2"
+        a.setString(1, "a2")
         a.commit()
         assertThat(cache["a"]).isNull()
     }
@@ -1007,8 +1007,8 @@ class DiskLruCacheTest {
 
     private operator fun set(key: String, value0: String, value1: String) {
         val editor = cache.edit(key)!!
-        editor[0] = value0
-        editor[1] = value1
+        editor.setString(0, value0)
+        editor.setString(1, value1)
         editor.commit()
     }
 
@@ -1055,7 +1055,7 @@ class DiskLruCacheTest {
             }
 
             try {
-                editor[0] = "A"
+                editor.setString(0, "A")
                 fail()
             } catch (expected: IllegalStateException) {
             }
