@@ -286,9 +286,17 @@ class DiskLruCache private constructor(
 
             lruEntries.values.forEach { entry ->
                 if (entry.currentEditor != null) {
-                    writer.writeUtf8("$DIRTY ${entry.key}\n")
+                    writer.writeUtf8(DIRTY)
+                    writer.writeUtf8(" ")
+                    writer.writeUtf8(entry.key)
+                    writer.writeUtf8("\n")
                 } else {
-                    writer.writeUtf8("$CLEAN ${entry.key} ${entry.getLengthsString()}\n")
+                    writer.writeUtf8(CLEAN)
+                    writer.writeUtf8(" ")
+                    writer.writeUtf8(entry.key)
+                    writer.writeUtf8(" ")
+                    writer.writeUtf8(entry.getLengthsString())
+                    writer.writeUtf8("\n")
                 }
             }
         }
