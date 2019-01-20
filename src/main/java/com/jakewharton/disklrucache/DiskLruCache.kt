@@ -136,6 +136,9 @@ class DiskLruCache private constructor(
 
     private val lruEntries = LinkedHashMap<String, Entry>(0, 0.75f, true)
 
+    /** This cache uses a single background thread to evict entries. */
+    internal val executorService = ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, LinkedBlockingQueue())
+
     private var journalWriter: BufferedSink? = null
     private var redundantOpCount = 0
     private var size = 0L
@@ -146,20 +149,6 @@ class DiskLruCache private constructor(
      * its sequence number is not equal to its entry's sequence number.
      */
     private var nextSequenceNumber = 0L
-
-    /** This cache uses a single background thread to evict entries. */
-    internal val executorService = ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, LinkedBlockingQueue())
-
-    private val cleanupCallable = {
-        synchronized(this@DiskLruCache) {
-            journalWriter ?: return@synchronized // Closed.
-            trimToSize()
-            if (journalRebuildRequired()) {
-                rebuildJournal()
-                redundantOpCount = 0
-            }
-        }
-    }
 
     @Throws(IOException::class)
     private fun readJournal() {
@@ -250,14 +239,14 @@ class DiskLruCache private constructor(
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (entry.currentEditor == null) {
-                (0 until valueCount).forEach {
-                    size += entry.lengths[it]
+                for (i in 0 until valueCount) {
+                    size += entry.lengths[i]
                 }
             } else {
                 entry.currentEditor = null
-                (0 until valueCount).forEach {
-                    entry.getCleanFile(it).deleteIfExists()
-                    entry.getDirtyFile(it).deleteIfExists()
+                for (i in 0 until valueCount) {
+                    entry.getCleanFile(i).deleteIfExists()
+                    entry.getDirtyFile(i).deleteIfExists()
                 }
                 iterator.remove()
             }
@@ -310,6 +299,18 @@ class DiskLruCache private constructor(
         journalWriter = journalFile.appendingSink().buffer()
     }
 
+    @Synchronized
+    @Throws(IOException::class)
+    private fun cleanupJournal() {
+        journalWriter ?: return // Closed.
+        trimToSize()
+
+        if (journalRebuildRequired()) {
+            rebuildJournal()
+            redundantOpCount = 0
+        }
+    }
+
     /**
      * Returns a snapshot of the entry named `key`, or null if it doesn't
      * exist is not currently readable. If a value is returned, it is moved to
@@ -328,8 +329,8 @@ class DiskLruCache private constructor(
         // from different edits.
         val inputs = arrayOfNulls<Source>(valueCount)
         try {
-            (0 until valueCount).forEach {
-                inputs[it] = entry.getCleanFile(it).source()
+            for (index in 0 until valueCount) {
+                inputs[index] = entry.getCleanFile(index).source()
             }
         } catch (e: FileNotFoundException) {
             // A file must have been deleted manually!
@@ -348,11 +349,16 @@ class DiskLruCache private constructor(
         }
 
         if (journalRebuildRequired()) {
-            executorService.submit(cleanupCallable)
+            executorService.submit(this::cleanupJournal)
         }
 
         @Suppress("UNCHECKED_CAST")
-        return Snapshot(key, entry.sequenceNumber, inputs as Array<Source>, entry.lengths)
+        return Snapshot(
+            key = key,
+            sequenceNumber = entry.sequenceNumber,
+            inputs = inputs as Array<Source>,
+            lengths = entry.lengths
+        )
     }
 
     @Throws(IOException::class)
@@ -411,7 +417,7 @@ class DiskLruCache private constructor(
     @Synchronized
     fun setMaxSize(maxSize: Long) {
         this.maxSize = maxSize
-        executorService.submit(cleanupCallable)
+        executorService.submit(this::cleanupJournal)
     }
 
     /**
@@ -440,27 +446,27 @@ class DiskLruCache private constructor(
 
         // If this edit is creating the entry for the first time, every index must have a value.
         if (success && !entry.readable) {
-            (0 until valueCount).forEach {
-                if (editor.written?.get(it) != true) {
+            for (i in 0 until valueCount) {
+                if (editor.written?.get(i) != true) {
                     editor.abort()
-                    throw IllegalStateException("Newly created entry didn't create value for index $it.")
+                    throw IllegalStateException("Newly created entry didn't create value for index $i.")
                 }
-                if (!entry.getDirtyFile(it).exists()) {
+                if (!entry.getDirtyFile(i).exists()) {
                     editor.abort()
                     return
                 }
             }
         }
 
-        (0 until valueCount).forEach {
-            val dirty = entry.getDirtyFile(it)
+        for (i in 0 until valueCount) {
+            val dirty = entry.getDirtyFile(i)
             if (success) {
                 if (dirty.exists()) {
-                    val clean = entry.getCleanFile(it)
+                    val clean = entry.getCleanFile(i)
                     dirty.renameTo(clean)
-                    val oldLength = entry.lengths[it]
+                    val oldLength = entry.lengths[i]
                     val newLength = clean.length()
-                    entry.lengths[it] = newLength
+                    entry.lengths[i] = newLength
                     size = size - oldLength + newLength
                 }
             } else {
@@ -496,7 +502,7 @@ class DiskLruCache private constructor(
         journalWriter?.flush()
 
         if (size > maxSize || journalRebuildRequired()) {
-            executorService.submit(cleanupCallable)
+            executorService.submit(this::cleanupJournal)
         }
     }
 
@@ -517,13 +523,13 @@ class DiskLruCache private constructor(
             return false
         }
 
-        (0 until valueCount).forEach {
-            val file = entry.getCleanFile(it)
+        for (i in 0 until valueCount) {
+            val file = entry.getCleanFile(i)
             if (file.exists() && !file.delete()) {
                 throw IOException("Failed to delete $file!")
             }
-            size -= entry.lengths[it]
-            entry.lengths[it] = 0
+            size -= entry.lengths[i]
+            entry.lengths[i] = 0
         }
 
         redundantOpCount++
@@ -536,7 +542,7 @@ class DiskLruCache private constructor(
         lruEntries.remove(key)
 
         if (journalRebuildRequired()) {
-            executorService.submit(cleanupCallable)
+            executorService.submit(this::cleanupJournal)
         }
 
         return true
@@ -669,6 +675,8 @@ class DiskLruCache private constructor(
          */
         @Throws(IOException::class)
         fun newSource(index: Int): Source? {
+            validateIndex(index)
+
             synchronized(this@DiskLruCache) {
                 if (entry.currentEditor != this) {
                     throw IllegalStateException()
@@ -694,9 +702,7 @@ class DiskLruCache private constructor(
          */
         @Throws(IOException::class)
         fun newSink(index: Int): Sink {
-            if (index < 0 || index >= valueCount) {
-                throw IllegalArgumentException("Expected index $index to be greater than 0 and less than the maximum value count of $valueCount.")
-            }
+            validateIndex(index)
 
             synchronized(this@DiskLruCache) {
                 if (entry.currentEditor != this) {
@@ -754,6 +760,12 @@ class DiskLruCache private constructor(
                     abort()
                 } catch (ignored: IOException) {
                 }
+            }
+        }
+
+        private fun validateIndex(index: Int) {
+            if (index < 0 || index >= valueCount) {
+                throw IllegalArgumentException("Expected index $index to be greater than 0 and less than the maximum value count of $valueCount.")
             }
         }
 
