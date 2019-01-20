@@ -16,6 +16,7 @@
 
 package com.jakewharton.disklrucache
 
+import com.jakewharton.disklrucache.DiskLruCache.Editor
 import okio.Buffer
 import okio.BufferedSink
 import okio.Sink
@@ -32,8 +33,8 @@ import java.io.IOException
 import java.io.OutputStream
 import java.util.LinkedHashMap
 import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 /**
  * A cache that uses a bounded amount of space on a filesystem. Each cache
@@ -528,7 +529,7 @@ class DiskLruCache private constructor(
     fun flush() {
         ensureNotClosed()
         trimToSize()
-        journalWriter!!.flush()
+        journalWriter?.flush()
     }
 
     /** Closes this cache. Stored values will remain on the filesystem. */
