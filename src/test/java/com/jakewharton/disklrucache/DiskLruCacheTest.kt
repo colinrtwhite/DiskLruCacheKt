@@ -20,14 +20,13 @@ import okio.buffer
 import okio.sink
 import okio.source
 import org.apache.commons.io.FileUtils
-import org.junit.After
-import org.junit.Before
-import org.junit.Test
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
-
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.After
 import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.FileWriter
 
@@ -132,9 +131,9 @@ class DiskLruCacheTest {
         creator[0] = "ABC"
         creator[1] = "DE"
         assertThat(creator.getString(0)).isNull()
-        assertThat(creator.newInputStream(0)).isNull()
+        assertThat(creator.newSource(0)).isNull()
         assertThat(creator.getString(1)).isNull()
-        assertThat(creator.newInputStream(1)).isNull()
+        assertThat(creator.newSource(1)).isNull()
         creator.commit()
 
         val snapshot = cache["k1"]!!
@@ -1062,7 +1061,7 @@ class DiskLruCacheTest {
             }
 
             try {
-                editor.newInputStream(0)
+                editor.newSource(0)
                 fail()
             } catch (expected: IllegalStateException) {
             }

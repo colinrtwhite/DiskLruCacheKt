@@ -621,7 +621,7 @@ class DiskLruCache private constructor(
          * or null if no value has been committed.
          */
         @Throws(IOException::class)
-        fun newInputStream(index: Int): Source? {
+        fun newSource(index: Int): Source? {
             synchronized(this@DiskLruCache) {
                 if (entry.currentEditor != this) {
                     throw IllegalStateException()
@@ -643,7 +643,7 @@ class DiskLruCache private constructor(
          */
         @Throws(IOException::class)
         fun getString(index: Int): String? {
-            return newInputStream(index)?.buffer()?.readString(Charsets.UTF_8)
+            return newSource(index)?.buffer()?.readString(Charsets.UTF_8)
         }
 
         /**
