@@ -332,7 +332,12 @@ class DiskLruCache private constructor(
         }
 
         redundantOpCount++
-        journalWriter?.writeUtf8("$READ $key\n")
+        journalWriter?.apply {
+            writeUtf8(READ)
+            writeUtf8(" ")
+            writeUtf8(key)
+            writeUtf8("\n")
+        }
 
         if (journalRebuildRequired()) {
             executorService.submit(cleanupCallable)
@@ -372,8 +377,13 @@ class DiskLruCache private constructor(
         entry.currentEditor = editor
 
         // Flush the journal before creating files to prevent file leaks.
-        journalWriter?.writeUtf8("$DIRTY $key\n")
-        journalWriter?.flush()
+        journalWriter?.apply {
+            writeUtf8(DIRTY)
+            writeUtf8(" ")
+            writeUtf8(key)
+            writeUtf8("\n")
+            flush()
+        }
         return editor
     }
 
@@ -455,13 +465,25 @@ class DiskLruCache private constructor(
 
         if (entry.readable or success) {
             entry.readable = true
-            journalWriter?.writeUtf8("$CLEAN ${entry.key} ${entry.getLengthsString()}\n")
+            journalWriter?.apply {
+                writeUtf8(CLEAN)
+                writeUtf8(" ")
+                writeUtf8(entry.key)
+                writeUtf8(" ")
+                writeUtf8(entry.getLengthsString())
+                writeUtf8("\n")
+            }
             if (success) {
                 entry.sequenceNumber = nextSequenceNumber++
             }
         } else {
             lruEntries.remove(entry.key)
-            journalWriter?.writeUtf8("$REMOVE ${entry.key}\n")
+            journalWriter?.apply {
+                writeUtf8(REMOVE)
+                writeUtf8(" ")
+                writeUtf8(entry.key)
+                writeUtf8("\n")
+            }
         }
         journalWriter?.flush()
 
@@ -497,7 +519,12 @@ class DiskLruCache private constructor(
         }
 
         redundantOpCount++
-        journalWriter?.writeUtf8("$REMOVE $key\n")
+        journalWriter?.apply {
+            writeUtf8(REMOVE)
+            writeUtf8(" ")
+            writeUtf8(key)
+            writeUtf8("\n")
+        }
         lruEntries.remove(key)
 
         if (journalRebuildRequired()) {
