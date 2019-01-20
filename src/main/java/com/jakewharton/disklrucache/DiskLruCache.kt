@@ -16,7 +16,6 @@
 
 package com.jakewharton.disklrucache
 
-import com.jakewharton.disklrucache.DiskLruCache.Editor
 import okio.Buffer
 import okio.BufferedSink
 import okio.Sink
