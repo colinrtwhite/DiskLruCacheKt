@@ -2,7 +2,8 @@ import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.3.11"
+    kotlin("jvm") version "1.3.20"
+    id("com.github.dcendents.android-maven") version "2.1"
 }
 
 group = "disklrucache"
