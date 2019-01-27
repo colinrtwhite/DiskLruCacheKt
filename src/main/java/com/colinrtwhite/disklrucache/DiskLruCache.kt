@@ -16,12 +16,13 @@
 
 package com.colinrtwhite.disklrucache
 
+import com.colinrtwhite.disklrucache.DiskLruCache.Editor
 import okio.Buffer
 import okio.BufferedSink
 import okio.Sink
 import okio.Source
-import okio.Timeout
 import okio.appendingSink
+import okio.blackholeSink
 import okio.buffer
 import okio.sink
 import okio.source
@@ -722,7 +723,7 @@ class DiskLruCache private constructor(
                         dirtyFile.sink()
                     } catch (ignored: FileNotFoundException) {
                         // We are unable to recover. Silently eat the writes.
-                        return NULL_SINK
+                        return blackholeSink()
                     }
                 }
 
@@ -861,18 +862,6 @@ class DiskLruCache private constructor(
         internal const val STRING_KEY_PATTERN = "[a-z0-9_-]{1,120}"
 
         private val LEGAL_KEY_PATTERN = STRING_KEY_PATTERN.toRegex()
-
-        private val NULL_SINK = object : Sink {
-            private val timeout = Timeout()
-
-            override fun write(source: Buffer, byteCount: Long) = Unit // Eat all writes silently. Nom nom.
-
-            override fun flush() = Unit
-
-            override fun timeout() = timeout
-
-            override fun close() = Unit
-        }
 
         /**
          * Opens the cache in `directory`, creating a cache if none exists
